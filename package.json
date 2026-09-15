@@ -7,7 +7,8 @@
   "typecheck": "tsc --noEmit",
   "test": "vitest run",
   "test:watch": "vitest",
-  "check": "pnpm typecheck && pnpm test"
+  "check": "pnpm typecheck && pnpm test",
+  "env-check": "tsx src/env-check/cli.ts"
 },
   "keywords": [],
   "author": "",
