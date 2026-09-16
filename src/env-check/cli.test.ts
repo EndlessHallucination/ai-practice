@@ -54,6 +54,14 @@ test("reports missing, empty, and extra together and exits 1 because missing is 
   );
 });
 
+test("a bare key with no equals sign reports EMPTY, not MISSING", () => {
+  write(".env.example", "API_KEY=\n");
+  write(".env", "API_KEY\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe([".env:", "  EMPTY: API_KEY", ""].join("\n"));
+});
+
 test("never prints actual values from .env", () => {
   write(".env.example", "DATABASE_URL=\nPORT=\n");
   write(".env", "DATABASE_URL=super-secret-value-xyz\nPORT=3000\n");
