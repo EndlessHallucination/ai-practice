@@ -16,6 +16,7 @@ export function compareEnvToExample(
   const missing: string[] = [];
   const empty: string[] = [];
   for (const ex of example) {
+    if (ex.isOptional) continue;
     const found = actualByKey.get(ex.key);
     if (found === undefined) missing.push(ex.key);
     else if (found.isEmpty) empty.push(ex.key);

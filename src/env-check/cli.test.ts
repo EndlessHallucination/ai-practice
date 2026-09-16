@@ -68,3 +68,19 @@ test("never prints actual values from .env", () => {
   const result = run(dir);
   expect(result.output).not.toContain("super-secret-value-xyz");
 });
+
+test("an example key marked # optional is exempt from missing", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY= # optional\n");
+  write(".env", "DATABASE_URL=postgres://localhost/dev\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe(".env: OK\n");
+});
+
+test("an example key marked # optional is exempt from empty", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY= # optional\n");
+  write(".env", "DATABASE_URL=postgres://localhost/dev\nAPI_KEY=\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe(".env: OK\n");
+});
