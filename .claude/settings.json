@@ -7,6 +7,7 @@
       "Bash(git status)",
       "Bash(git diff:*)"
     ],
-    "ask": ["Bash(git push:*)", "Bash(pnpm add:*)"]
+    "ask": ["Bash(git push:*)", "Bash(pnpm add:*)"],
+    "deny": ["Bash(git worktree:*)"]
   }
 }
