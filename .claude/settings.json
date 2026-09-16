@@ -4,10 +4,15 @@
       "Bash(pnpm test:*)",
       "Bash(pnpm typecheck)",
       "Bash(pnpm check)",
-      "Bash(git status)",
-      "Bash(git diff:*)"
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)"
     ],
     "ask": ["Bash(git push:*)", "Bash(pnpm add:*)"],
     "deny": ["Bash(git worktree:*)"]
+  },
+  "worktree": {
+    "bgIsolation": "none"
   }
 }
