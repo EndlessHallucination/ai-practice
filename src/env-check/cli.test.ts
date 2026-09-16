@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test } from "vitest";
@@ -11,6 +11,13 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // A chmod 0o000 file blocks recursive removal on some platforms, so restore
+  // permissions before cleanup.
+  try {
+    chmodSync(join(dir, ".env"), 0o600);
+  } catch {
+    // .env may not exist in this test's dir; nothing to restore.
+  }
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -84,3 +91,31 @@ test("an example key marked # optional is exempt from empty", () => {
   expect(result.exitCode).toBe(0);
   expect(result.output).toBe(".env: OK\n");
 });
+
+test(".env being a directory reports a clean read error, not a crash", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  mkdirSync(join(dir, ".env"));
+  const result = run(dir);
+  expect(result.exitCode).toBe(1);
+  expect(result.output).toContain("Error: could not read .env:");
+});
+
+test(".env.example being a directory reports a clean read error, not a crash", () => {
+  mkdirSync(join(dir, ".env.example"));
+  write(".env", "DATABASE_URL=x\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(1);
+  expect(result.output).toContain("Error: could not read .env.example:");
+});
+
+test.skipIf(process.getuid?.() === 0)(
+  "an unreadable .env reports permission denied, not a crash",
+  () => {
+    write(".env.example", "DATABASE_URL=\n");
+    write(".env", "DATABASE_URL=x\n");
+    chmodSync(join(dir, ".env"), 0o000);
+    const result = run(dir);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toBe("Error: could not read .env: permission denied\n");
+  },
+);
