@@ -8,15 +8,15 @@ A key counts as empty if any of: `KEY=` (nothing after `=`), `KEY=""` or `KEY=''
 
 ## Optional marker
 
-An inline trailing comment in `.env.example` only, exact-match (case-insensitive, trimmed) `# optional` — e.g. `API_KEY= # optional`. Exempts the key from both the missing check and the empty check, unconditionally, everywhere. Not implemented in v0 (every example key is required).
+An inline trailing comment in `.env.example` only, exact-match (case-insensitive, trimmed) `# optional` — e.g. `API_KEY= # optional`. Exempts the key from both the missing check and the empty check, unconditionally, everywhere. Not implemented in v0 (every example key is required). The comment must be exactly `optional` after the `#` — whitespace after the `#` is allowed (`# optional` and `#optional` both work), but trailing text is not (`# optional, see docs` does not match). Known case: `KEY=value#optional` (no whitespace before `#`) — the `#` doesn't start a comment, so the value is the literal `value#optional` and the key is not marked optional. Correct per the whitespace rule, but likely not what the author intended. Nothing to fix; a malformed-line warning wouldn't catch it either, since the line is well-formed.
 
 ## Duplicate keys
 
-If the same key appears twice in one file, that's a hard error for *that file* — the run continues checking other files, but that file's report shows the duplicate instead of computed findings, and the overall exit code reflects the failure. (v0: last occurrence silently wins, no error — a known simplification.)
+If the same key appears twice in one file, that's a hard error for _that file_ — the run continues checking other files, but that file's report shows the duplicate instead of computed findings, and the overall exit code reflects the failure. (v0: last occurrence silently wins, no error — a known simplification.)
 
 ## Extra variables
 
-Reported by default. `--ignore-extra=KEY1,KEY2` (exact key names only, no wildcards, no config file) suppresses matching keys from the report entirely, as if they weren't extra — the filtering happens once, on the `extra` findings, before either formatting or exit-code evaluation runs. Because it's a single filter applied up front, a suppressed key can neither appear in output nor by itself trigger `--fail-on=extra` — only a *non-ignored* extra key can do either of those things. (v0 has no ignore mechanism; not needed since there's no `--fail-on` either.)
+Reported by default. `--ignore-extra=KEY1,KEY2` (exact key names only, no wildcards, no config file) suppresses matching keys from the report entirely, as if they weren't extra — the filtering happens once, on the `extra` findings, before either formatting or exit-code evaluation runs. Because it's a single filter applied up front, a suppressed key can neither appear in output nor by itself trigger `--fail-on=extra` — only a _non-ignored_ extra key can do either of those things. (v0 has no ignore mechanism; not needed since there's no `--fail-on` either.)
 
 ## File discovery
 
@@ -44,7 +44,9 @@ Key comparison is case-sensitive throughout (`DATABASE_URL` ≠ `database_url`).
 
 ## Parser scope (full)
 
-Supports: basic `KEY=value`, `#` full-line comments, blank lines, quoted values (`"..."`/`'...'`, so `=`/`#` inside quotes don't break parsing or end the value early), an `export ` line prefix (requires whitespace after "export" so `exported=` isn't mistaken for it), and unquoted trailing `# comment` stripping — a `#` must be preceded by whitespace to start a comment, so `PORT=3000#x` is *not* a comment and the whole `3000#x` is the literal value. Multiline/escaped values are explicitly out of scope even for this fuller spec — an unterminated quote is a malformed line, not a hang or a truncation guess. A line that's non-blank, non-comment, and doesn't match `KEY`/`KEY=value` (with optional `export` prefix) is skipped but produces a `WARNING` line in that file's report, rather than erroring or vanishing silently. (v0 implements the basic `KEY=value` + comments + blanks, plus the `export` prefix; quotes, trailing-comment stripping, and malformed-line warnings remain unimplemented, with non-matching lines silently ignored instead.)
+Supports: basic `KEY=value`, `#` full-line comments, blank lines, quoted values (`"..."`/`'...'`, so `=`/`#` inside quotes don't break parsing or end the value early), an `export ` line prefix (requires whitespace after "export" so `exported=` isn't mistaken for it), and unquoted trailing `# comment` stripping — a `#` must be preceded by whitespace to start a comment, so `PORT=3000#x` is _not_ a comment and the whole `3000#x` is the literal value. Multiline/escaped values are explicitly out of scope even for this fuller spec — an unterminated quote is a malformed line, not a hang or a truncation guess. A line that's non-blank, non-comment, and doesn't match `KEY`/`KEY=value` (with optional `export` prefix) is skipped but produces a `WARNING` line in that file's report, rather than erroring or vanishing silently. (v0 implements basic `KEY=value` + comments + blanks, the `export` prefix, and empty-quote detection (`""`/`''` count as empty). Full quote parsing — `=`/`#` inside quotes, quoted values with content — plus trailing-comment stripping and malformed-line warnings remain unimplemented, with non-matching lines silently ignored.).Known case: `export=value` (no space) parses as a variable named `export`.
+Almost certainly a typo for `export VALUE=...`. v0 accepts it silently; once
+malformed-line warnings exist, it should produce one.
 
 ## Commented-out lines
 
