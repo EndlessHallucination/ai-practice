@@ -9,3 +9,4 @@ TypeScript (strict), Node 22, pnpm, vitest. ESM.
 - No `any`. No `@ts-ignore`. If the types are hard, say so and explain why.
 - Small diffs. One concern per change.
 - When I ask "why", give me the tradeoff, don't just agree with me.
+- Never commit, push, or create branches/worktrees unless I ask.
