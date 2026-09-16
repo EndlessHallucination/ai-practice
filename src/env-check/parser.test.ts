@@ -19,10 +19,6 @@ test("treats whitespace-only value as empty", () => {
   expect(parseEnvFile("API_KEY=   ")).toEqual([{ key: "API_KEY", isEmpty: true }]);
 });
 
-test("silently skips a line with no equals sign", () => {
-  expect(parseEnvFile("just some text")).toEqual([]);
-});
-
 test("silently skips a line with an invalid key (leading digit)", () => {
   expect(parseEnvFile("1KEY=value")).toEqual([]);
 });
@@ -33,6 +29,38 @@ test("silently skips an export-prefixed line (key contains a space)", () => {
 
 test("last occurrence of a duplicate key wins", () => {
   expect(parseEnvFile("PORT=3000\nPORT=")).toEqual([{ key: "PORT", isEmpty: true }]);
+});
+
+test('treats KEY="" (empty double-quoted string) as empty', () => {
+  expect(parseEnvFile('API_KEY=""')).toEqual([{ key: "API_KEY", isEmpty: true }]);
+});
+
+test("treats KEY='' (empty single-quoted string) as empty", () => {
+  expect(parseEnvFile("API_KEY=''")).toEqual([{ key: "API_KEY", isEmpty: true }]);
+});
+
+test("treats a bare key with no equals sign as empty", () => {
+  expect(parseEnvFile("API_KEY")).toEqual([{ key: "API_KEY", isEmpty: true }]);
+});
+
+test("does not treat a quoted single space as empty", () => {
+  expect(parseEnvFile('API_KEY=" "')).toEqual([{ key: "API_KEY", isEmpty: false }]);
+});
+
+test("does not treat a quoted non-empty value with padding spaces as empty", () => {
+  expect(parseEnvFile('API_KEY=" foo "')).toEqual([{ key: "API_KEY", isEmpty: false }]);
+});
+
+test("does not treat an unterminated quote as empty (no special quote handling)", () => {
+  expect(parseEnvFile('API_KEY="foo')).toEqual([{ key: "API_KEY", isEmpty: false }]);
+});
+
+test("does not treat mismatched quote characters as empty", () => {
+  expect(parseEnvFile("API_KEY=\"foo'")).toEqual([{ key: "API_KEY", isEmpty: false }]);
+});
+
+test("does not treat a malformed line with no equals sign and no valid bare key as empty", () => {
+  expect(parseEnvFile("not a key")).toEqual([]);
 });
 
 test("mixed file parses only the recognized lines, in first-seen order", () => {
