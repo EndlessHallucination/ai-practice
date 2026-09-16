@@ -4,7 +4,7 @@ This is the complete behavioral design produced by an in-depth interview, coveri
 
 ## Empty definition (full)
 
-A key counts as empty if any of: `KEY=` (nothing after `=`), `KEY=""` or `KEY=''` (empty quoted string), `KEY=   ` (whitespace-only value), or bare `KEY` with no `=` at all. (v0 only detects the first and third of these — quotes aren't parsed and bare keys are ignored entirely.)
+A key counts as empty if any of: `KEY=` (nothing after `=`), `KEY=""` or `KEY=''` (empty quoted string), `KEY=   ` (whitespace-only value), or bare `KEY` with no `=` at all. (Fully implemented. Note: quoted whitespace like `KEY="  "` is deliberately NOT empty — the quotes make the space literal content.)
 
 ## Optional marker
 
