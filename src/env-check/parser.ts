@@ -11,14 +11,16 @@ export function parseEnvFile(content: string): ParsedVariable[] {
   for (const rawLine of content.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (line === "" || line.startsWith("#")) continue;
-    const eq = line.indexOf("=");
+    const exportMatch = line.match(/^export\s+(.*)$/);
+    const stmt = exportMatch ? (exportMatch[1] ?? "") : line;
+    const eq = stmt.indexOf("=");
     if (eq === -1) {
-      if (KEY_PATTERN.test(line)) byKey.set(line, true); // bare key, no '='
+      if (KEY_PATTERN.test(stmt)) byKey.set(stmt, true); // bare key, no '='
       continue;
     }
-    const key = line.slice(0, eq).trim();
+    const key = stmt.slice(0, eq).trim();
     if (!KEY_PATTERN.test(key)) continue;
-    const value = line.slice(eq + 1).trim();
+    const value = stmt.slice(eq + 1).trim();
     byKey.set(key, value === "" || EMPTY_QUOTED_PATTERN.test(value));
   }
   return [...byKey.entries()].map(([key, isEmpty]) => ({ key, isEmpty }));

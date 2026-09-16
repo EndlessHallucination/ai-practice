@@ -23,8 +23,24 @@ test("silently skips a line with an invalid key (leading digit)", () => {
   expect(parseEnvFile("1KEY=value")).toEqual([]);
 });
 
-test("silently skips an export-prefixed line (key contains a space)", () => {
-  expect(parseEnvFile("export PORT=3000")).toEqual([]);
+test("parses an export-prefixed line as a normal variable", () => {
+  expect(parseEnvFile("export PORT=3000")).toEqual([{ key: "PORT", isEmpty: false }]);
+});
+
+test("does not treat exported=value as export-prefixed (no whitespace after export)", () => {
+  expect(parseEnvFile("exported=value")).toEqual([{ key: "exported", isEmpty: false }]);
+});
+
+test("does not treat export=value as export-prefixed (no whitespace after export)", () => {
+  expect(parseEnvFile("export=value")).toEqual([{ key: "export", isEmpty: false }]);
+});
+
+test("strips an export prefix with multiple spaces", () => {
+  expect(parseEnvFile("export   PORT=3000")).toEqual([{ key: "PORT", isEmpty: false }]);
+});
+
+test("strips export prefix from a bare key with no equals sign", () => {
+  expect(parseEnvFile("export FOO")).toEqual([{ key: "FOO", isEmpty: true }]);
 });
 
 test("last occurrence of a duplicate key wins", () => {
