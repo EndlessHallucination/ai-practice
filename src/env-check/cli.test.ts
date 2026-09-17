@@ -193,3 +193,143 @@ test.skipIf(process.getuid?.() === 0)(
     );
   },
 );
+
+// --- --fail-on ---
+
+test("default fail-on is missing: empty/extra alone don't trigger exit 1", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY=\n");
+  write(".env", "DATABASE_URL=\nAPI_KEY=x\nDEBUG_MODE=1\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe(
+    [".env:", "  EMPTY: DATABASE_URL", "  EXTRA: DEBUG_MODE", ""].join("\n"),
+  );
+});
+
+test("--fail-on=empty triggers exit 1 on an empty finding but not on extra", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=\nDEBUG_MODE=1\n");
+  const result = run(dir, ["--fail-on=empty"]);
+  expect(result.exitCode).toBe(1);
+});
+
+test("--fail-on=extra triggers exit 1 on an extra finding", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\nDEBUG_MODE=1\n");
+  const result = run(dir, ["--fail-on=extra"]);
+  expect(result.exitCode).toBe(1);
+});
+
+test("--fail-on=extra does not trigger exit 1 on a missing finding", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY=\n");
+  write(".env", "DATABASE_URL=x\n");
+  const result = run(dir, ["--fail-on=extra"]);
+  expect(result.exitCode).toBe(0);
+});
+
+test("--fail-on=missing,empty combines both kinds", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY=\n");
+  write(".env", "DATABASE_URL=\n");
+  const result = run(dir, ["--fail-on=missing,empty"]);
+  expect(result.exitCode).toBe(1);
+});
+
+test("--fail-on=missing, empty (whitespace after comma) is trimmed and valid", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=\n");
+  const result = run(dir, ["--fail-on=missing, empty"]);
+  expect(result.exitCode).toBe(1);
+});
+
+test("explicit --fail-on= means fail on nothing, even with a missing key present", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY=\n");
+  write(".env", "DATABASE_URL=x\n");
+  const result = run(dir, ["--fail-on="]);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe([".env:", "  MISSING: API_KEY", ""].join("\n"));
+});
+
+test("--fail-on= as whitespace only is treated as empty (fail on nothing)", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\n");
+  const result = run(dir, ["--fail-on= "]);
+  expect(result.exitCode).toBe(0);
+});
+
+test("an invalid --fail-on token is a usage error, exit 2", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\n");
+  const result = run(dir, ["--fail-on=missing,typo"]);
+  expect(result.exitCode).toBe(2);
+  expect(result.output).toContain("typo");
+});
+
+test("a stray double comma in --fail-on (empty token after trim) is a usage error", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\n");
+  const result = run(dir, ["--fail-on=missing,,empty"]);
+  expect(result.exitCode).toBe(2);
+});
+
+test("an unknown flag is a usage error, exit 2", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\n");
+  const result = run(dir, ["--bogus"]);
+  expect(result.exitCode).toBe(2);
+});
+
+test("flags are validated before any file I/O: bad flag with no .env.example is still a usage error, not a 'not found' error", () => {
+  const result = run(dir, ["--bogus"]);
+  expect(result.exitCode).toBe(2);
+  expect(result.output).not.toContain(".env.example not found");
+});
+
+test("an invalid --fail-on value with no .env.example is still a usage error, not a 'not found' error", () => {
+  const result = run(dir, ["--fail-on=typo"]);
+  expect(result.exitCode).toBe(2);
+  expect(result.output).not.toContain(".env.example not found");
+});
+
+// --- --ignore-extra ---
+
+test("--ignore-extra suppresses a matching extra key from the report entirely", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\nDEBUG_MODE=1\n");
+  const result = run(dir, ["--ignore-extra=DEBUG_MODE"]);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe(".env: OK\n");
+});
+
+test("--ignore-extra only suppresses the named key, leaving other extras reported", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\nDEBUG_MODE=1\nOTHER_EXTRA=1\n");
+  const result = run(dir, ["--ignore-extra=DEBUG_MODE"]);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe([".env:", "  EXTRA: OTHER_EXTRA", ""].join("\n"));
+});
+
+test("--ignore-extra list is comma-separated with optional whitespace, trimmed", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\nDEBUG_MODE=1\nOTHER_EXTRA=1\n");
+  const result = run(dir, ["--ignore-extra=DEBUG_MODE, OTHER_EXTRA"]);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe(".env: OK\n");
+});
+
+test("a suppressed extra key cannot by itself trigger --fail-on=extra", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=x\nDEBUG_MODE=1\n");
+  const result = run(dir, ["--fail-on=extra", "--ignore-extra=DEBUG_MODE"]);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe(".env: OK\n");
+});
+
+test("--ignore-extra does not suppress missing or empty findings for the same key name", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY=\n");
+  write(".env", "DATABASE_URL=\n");
+  const result = run(dir, ["--ignore-extra=API_KEY"]);
+  expect(result.exitCode).toBe(1); // MISSING: API_KEY still triggers the default fail-on=missing
+  expect(result.output).toBe(
+    [".env:", "  MISSING: API_KEY", "  EMPTY: DATABASE_URL", ""].join("\n"),
+  );
+});

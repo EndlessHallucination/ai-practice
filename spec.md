@@ -16,7 +16,7 @@ If the same key appears twice in one file, that's a hard error for _that file_ �
 
 ## Extra variables
 
-Reported by default. `--ignore-extra=KEY1,KEY2` (exact key names only, no wildcards, no config file) suppresses matching keys from the report entirely, as if they weren't extra — the filtering happens once, on the `extra` findings, before either formatting or exit-code evaluation runs. Because it's a single filter applied up front, a suppressed key can neither appear in output nor by itself trigger `--fail-on=extra` — only a _non-ignored_ extra key can do either of those things. (v0 has no ignore mechanism; not needed since there's no `--fail-on` either.)
+Reported by default. `--ignore-extra=KEY1,KEY2` (exact key names only, no wildcards, no config file) suppresses matching keys from the report entirely, as if they weren't extra — the filtering happens once, on the `extra` findings, before either formatting or exit-code evaluation runs. Because it's a single filter applied up front, a suppressed key can neither appear in output nor by itself trigger `--fail-on=extra` — only a _non-ignored_ extra key can do either of those things. (Implemented: parsed with `node:util.parseArgs`. The list is comma-separated with optional whitespace around each entry, trimmed before matching — `--ignore-extra=A, B` and `--ignore-extra=A,B` are equivalent. An explicit `--ignore-extra=` (or whitespace-only) is an empty list, i.e. no filtering, same as omitting the flag.)
 
 ## File discovery
 
@@ -24,7 +24,7 @@ Auto-discover via directory listing: `.env` and any `.env.*` file in the cwd, ex
 
 ## Exit code
 
-`--fail-on=<comma list of missing,empty,extra>`, default `missing`. Any triggered finding, or a structural error (duplicate key, missing `.env.example`), causes exit 1 — the two failure classes deliberately share one code, kept simple; only a CLI usage error (bad flag/value, unknown flag) gets a distinct code, 2. An explicit `--fail-on=` (empty string) means "fail on nothing," not an error. (v0 hardcodes the `missing`-only default with no override flag.)
+`--fail-on=<comma list of missing,empty,extra>`, default `missing`. Any triggered finding, or a structural error (duplicate key, missing `.env.example`), causes exit 1 — the two failure classes deliberately share one code, kept simple; only a CLI usage error (bad flag/value, unknown flag) gets a distinct code, 2. An explicit `--fail-on=` (empty string) means "fail on nothing," not an error. (Implemented: parsed with `node:util.parseArgs` (`strict: true`), validated before any file I/O — a bad flag or invalid `--fail-on` value is reported and exits 2 even if `.env.example` is missing. The list is comma-separated with optional whitespace around each entry, trimmed before validation, so `--fail-on=missing, empty` and `--fail-on=missing,empty` are equivalent. A token that isn't `missing`/`empty`/`extra` after trimming — including an empty token from a stray double comma like `missing,,empty` — is a usage error, exit 2. Whitespace-only `--fail-on= ` trims to the explicit-empty case, "fail on nothing." Unknown flags are also usage errors, exit 2, via `parseArgs`'s strict mode. `--fail-on=extra` is evaluated against the `extra` findings *after* `--ignore-extra` filtering, per the "Extra variables" section above.)
 
 ## Value exposure
 
