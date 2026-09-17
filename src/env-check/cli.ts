@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { discoverEnvFiles } from "./discover.js";
 import { parseEnvFile } from "./parser.js";
 import { compareEnvToExample } from "./compare.js";
 import { formatReport } from "./format.js";
@@ -33,22 +34,32 @@ export function run(cwd: string): { output: string; exitCode: number } {
   if (!existsSync(examplePath)) {
     return { output: "Error: .env.example not found\n", exitCode: 1 };
   }
-  const envPath = join(cwd, ".env");
-  if (!existsSync(envPath)) {
-    return { output: "Error: .env not found\n", exitCode: 1 };
-  }
   const exampleRead = readEnvFile(examplePath, ".env.example");
   if ("error" in exampleRead) {
     return { output: exampleRead.error, exitCode: 1 };
   }
-  const envRead = readEnvFile(envPath, ".env");
-  if ("error" in envRead) {
-    return { output: envRead.error, exitCode: 1 };
-  }
   const example = parseEnvFile(exampleRead.content);
-  const actual = parseEnvFile(envRead.content);
-  const result = compareEnvToExample(example, actual);
-  return { output: formatReport(result), exitCode: result.missing.length > 0 ? 1 : 0 };
+
+  const variantFiles = discoverEnvFiles(cwd);
+  if (variantFiles.length === 0) {
+    return { output: "Warning: no .env or .env.* files found\n", exitCode: 0 };
+  }
+
+  const sections: string[] = [];
+  let exitCode = 0;
+  for (const file of variantFiles) {
+    const fileRead = readEnvFile(join(cwd, file), file);
+    if ("error" in fileRead) {
+      sections.push(fileRead.error);
+      exitCode = 1;
+      continue;
+    }
+    const actual = parseEnvFile(fileRead.content);
+    const result = compareEnvToExample(example, actual);
+    if (result.missing.length > 0) exitCode = 1;
+    sections.push(formatReport(file, result));
+  }
+  return { output: sections.join(""), exitCode };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

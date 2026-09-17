@@ -20,7 +20,7 @@ Reported by default. `--ignore-extra=KEY1,KEY2` (exact key names only, no wildca
 
 ## File discovery
 
-Auto-discover via directory listing: `.env` and any `.env.*` file in the cwd, excluding `.env.example` itself, sorted alphabetically for deterministic output. No path-override flags planned. (v0 only ever looks at exactly `.env`.)
+Auto-discover via directory listing: `.env` and any `.env.*` file in the cwd, excluding `.env.example` itself, sorted alphabetically for deterministic output. No path-override flags planned. (Implemented: directories are excluded too — a directory named `.env` or `.env.*` is not treated as a discoverable variant at all, not just one that fails to read. A per-file read error, once a file is discovered, reports that file's error in its own section and continues checking the other discovered files rather than aborting the whole run.)
 
 ## Exit code
 
@@ -32,11 +32,11 @@ Never print actual values from `.env`, anywhere, under any circumstance — key 
 
 ## Output format
 
-Human-readable text only, no JSON mode. Grouped by file, one section per discovered variant: a clean file prints `<file>: OK` on one line; a file with findings prints a header line `<file>:` then indented `KIND: KEY` lines in fixed order (MISSING, then EMPTY, then EXTRA), regardless of internal computation order, plus any malformed-line warnings for that file appended at the end of its section as `  WARNING: line N: malformed line, skipped: "<original line>"`. (v0 has this same per-finding format already, just for a single hardcoded `.env` file with no warnings.)
+Human-readable text only, no JSON mode. Grouped by file, one section per discovered variant: a clean file prints `<file>: OK` on one line; a file with findings prints a header line `<file>:` then indented `KIND: KEY` lines in fixed order (MISSING, then EMPTY, then EXTRA), regardless of internal computation order, plus any malformed-line warnings for that file appended at the end of its section as `  WARNING: line N: malformed line, skipped: "<original line>"`. (Implemented: per-file sections, one per discovered variant, in the fixed MISSING/EMPTY/EXTRA order. Malformed-line warnings remain unimplemented — parser.ts still silently ignores non-matching lines.)
 
 ## Missing files handling
 
-If `.env.example` doesn't exist: hard error, exit 1. If `.env.example` exists but zero `.env`/`.env.*` variant files are found: print a warning, exit 0 (don't fail just because there's nothing to check). (v0 has only one expected variant filename, so this collapses to a simpler rule: a missing `.env` is its own specific error, exit 1 — not a warning, and not silently treated as an empty file — since with only one file to check, "nothing to check" and "the one file is missing" are the same situation and it's worth calling out by name.)
+If `.env.example` doesn't exist: hard error, exit 1. If `.env.example` exists but zero `.env`/`.env.*` variant files are found: print a warning, exit 0 (don't fail just because there's nothing to check). (Implemented: warning text is `Warning: no .env or .env.* files found`, exit 0. A directory named `.env` or `.env.*` counts as "not found" for this purpose, since directories are excluded from discovery.)
 
 ## Case sensitivity
 

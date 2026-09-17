@@ -13,10 +13,12 @@ beforeEach(() => {
 afterEach(() => {
   // A chmod 0o000 file blocks recursive removal on some platforms, so restore
   // permissions before cleanup.
-  try {
-    chmodSync(join(dir, ".env"), 0o600);
-  } catch {
-    // .env may not exist in this test's dir; nothing to restore.
+  for (const name of [".env", ".env.local"]) {
+    try {
+      chmodSync(join(dir, name), 0o600);
+    } catch {
+      // File may not exist in this test's dir; nothing to restore.
+    }
   }
   rmSync(dir, { recursive: true, force: true });
 });
@@ -32,13 +34,11 @@ test("missing .env.example is a hard error", () => {
   expect(result.output).toContain(".env.example not found");
 });
 
-test("missing .env is reported specifically, not as every key missing", () => {
+test("no variant files found prints a warning and exits 0", () => {
   write(".env.example", "DATABASE_URL=\nAPI_KEY=\n");
   const result = run(dir);
-  expect(result.exitCode).toBe(1);
-  expect(result.output).toBe("Error: .env not found\n");
-  expect(result.output).not.toContain("DATABASE_URL");
-  expect(result.output).not.toContain("API_KEY");
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe("Warning: no .env or .env.* files found\n");
 });
 
 test("clean pair reports OK and exits 0", () => {
@@ -92,12 +92,21 @@ test("an example key marked # optional is exempt from empty", () => {
   expect(result.output).toBe(".env: OK\n");
 });
 
-test(".env being a directory reports a clean read error, not a crash", () => {
+test("a directory named .env is excluded from discovery, treated as no variant files found", () => {
   write(".env.example", "DATABASE_URL=\n");
   mkdirSync(join(dir, ".env"));
   const result = run(dir);
-  expect(result.exitCode).toBe(1);
-  expect(result.output).toContain("Error: could not read .env:");
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe("Warning: no .env or .env.* files found\n");
+});
+
+test("a directory named .env is silently skipped while a real variant file is still reported", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  mkdirSync(join(dir, ".env"));
+  write(".env.local", "DATABASE_URL=postgres://localhost/dev\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe(".env.local: OK\n");
 });
 
 test(".env.example being a directory reports a clean read error, not a crash", () => {
@@ -117,5 +126,58 @@ test.skipIf(process.getuid?.() === 0)(
     const result = run(dir);
     expect(result.exitCode).toBe(1);
     expect(result.output).toBe("Error: could not read .env: permission denied\n");
+  },
+);
+
+test("multiple variant files are each reported in their own section, in alphabetical order", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env.production", "DATABASE_URL=postgres://prod/db\n");
+  write(".env", "DATABASE_URL=postgres://localhost/dev\n");
+  write(".env.local", "DATABASE_URL=postgres://localhost/dev\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe(
+    [".env: OK", ".env.local: OK", ".env.production: OK", ""].join("\n"),
+  );
+});
+
+test(".env.example is never treated as a variant to check against itself", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=postgres://localhost/dev\n");
+  const result = run(dir);
+  expect(result.output).not.toContain(".env.example:");
+});
+
+test("exit code is 1 if any file has a missing key, even if others are clean", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY=\n");
+  write(".env", "DATABASE_URL=postgres://localhost/dev\nAPI_KEY=x\n");
+  write(".env.local", "DATABASE_URL=postgres://localhost/dev\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(1);
+  expect(result.output).toBe(
+    [".env: OK", ".env.local:", "  MISSING: API_KEY", ""].join("\n"),
+  );
+});
+
+test("a file with only extra/empty findings does not by itself force exit 1", () => {
+  write(".env.example", "DATABASE_URL=\n");
+  write(".env", "DATABASE_URL=postgres://localhost/dev\nDEBUG_MODE=1\n");
+  const result = run(dir);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toBe([".env:", "  EXTRA: DEBUG_MODE", ""].join("\n"));
+});
+
+test.skipIf(process.getuid?.() === 0)(
+  "one unreadable variant file reports its error and still reports the others",
+  () => {
+    write(".env.example", "DATABASE_URL=\n");
+    write(".env", "DATABASE_URL=postgres://localhost/dev\n");
+    write(".env.local", "DATABASE_URL=postgres://localhost/dev\n");
+    chmodSync(join(dir, ".env.local"), 0o000);
+    const result = run(dir);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toBe(
+      ".env: OK\nError: could not read .env.local: permission denied\n",
+    );
   },
 );
