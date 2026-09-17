@@ -76,6 +76,18 @@ test("never prints actual values from .env", () => {
   expect(result.output).not.toContain("super-secret-value-xyz");
 });
 
+test("a clean file after a failing file does not reset the exit code", () => {
+  write(".env.example", "DATABASE_URL=\nAPI_KEY=\nPORT=\n");
+  write(".env", "DATABASE_URL=x\n"),
+    write(".env.local", "DATABASE_URL=x\nAPI_KEY=y\nPORT=80\n"),
+    write(".env.production", "DATABASE_URL=x\nAPI_KEY=y\nPORT=80\n");
+  const result = run(dir)
+  expect(result.exitCode).toBe(1);
+  expect(result.output).toContain("MISSING: API_KEY");
+
+});
+
+
 test("an example key marked # optional is exempt from missing", () => {
   write(".env.example", "DATABASE_URL=\nAPI_KEY= # optional\n");
   write(".env", "DATABASE_URL=postgres://localhost/dev\n");
